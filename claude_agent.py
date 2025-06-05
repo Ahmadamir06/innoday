@@ -15,23 +15,26 @@ client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 # Load SonarQube JSON
 def load_sonarqube_results(json_path):
     with open(json_path, 'r') as f:
+        print(f"loading sq file {f}")
         return json.load(f)
 
 # Load all JavaScript code files from directory
 def load_code_files(code_dir):
     code_files = {}
-    for file in Path(code_dir).glob("*.js"):
+    for file in Path(code_dir).glob("*.py"):
         with open(file, 'r') as f:
+            print(f"Reading file: {file}")
             code_files[file.name] = f.read()
     return code_files
 
 # Create a prompt from code and its issues
 def generate_prompt(code, issues):
+    print("generating prompt")
     return f"""You are an expert JavaScript developer and debugger.
             You will fix code based on static analysis issues (by SonarQube).
 
             Here is the code:
-            ```javascript
+            ```python
             {code}
             And here are the issues from SonarQube:
             {issues}
@@ -48,6 +51,7 @@ def get_fixes_from_claude(code, issues):
     {"role": "user", "content": prompt}
     ]
     )
+    print(response.content[0].text)
     return response.content[0].text # Returns only the message text
 
 def fix_all_code(json_path, code_dir):
@@ -60,9 +64,11 @@ def fix_all_code(json_path, code_dir):
         issues_by_file.setdefault(file_path, []).append(issue["message"])
 
     # Apply fixes using Claude
+    print("apply fixes")
     fixed_files = {}
     for filename, code in code_files.items():
         issues = "\n".join(issues_by_file.get(filename, []))
+        print(issues)
         if issues:
             fixed_code = get_fixes_from_claude(code, issues)
             fixed_files[filename] = fixed_code

@@ -1,5 +1,4 @@
-from agent import fix_all_code
+from openai_agent import fix_all_code
 
 
-if __name__ == "__main__":
-    fix_all_code("innoday/sonarqube-results.json", "data")
+fix_all_code("sonarqube-results.json", "data")
