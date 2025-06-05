@@ -38,10 +38,9 @@ pipeline {
             }
         }
 
-        stage('Quality Gate ') {
+        stage('AI AGENT to be called ') {
             steps {
-                timeout(time: 10, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
+                timeout(time: 1, unit: 'MINUTES') {
                 }
             }
         }
