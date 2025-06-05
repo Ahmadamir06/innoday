@@ -26,10 +26,21 @@ pipeline {
             }
         }
 
+        stage('Save SonarQube Results') {
+            steps {
+                echo 'Saving SonarQube analysis JSON results...'
+                sh '''
+                    mkdir -p agent
+                    curl -s -u <SONARQUBE_USER>:<SONARQUBE_TOKEN> \
+                    "http://localhost:9000/api/measures/component?component=Innovation_day&metricKeys=coverage,bugs,vulnerabilities" \
+                    -o agent/sonarqube-results.json
+                '''
+            }
+        }
 
         stage('Quality Gate ') {
             steps {
-                timeout(time: 1, unit: 'MINUTES') {
+                timeout(time: 10, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
