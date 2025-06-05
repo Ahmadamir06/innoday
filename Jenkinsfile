@@ -20,7 +20,7 @@ pipeline {
                 withSonarQubeEnv('MyLocalSonar') {
                     script {
                         def scannerHome = tool 'SonarQube Scanner'
-                        sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=Innovation_day -Dsonar.sources=appdemo-fixed"
+                        sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=Innovation_day -Dsonar.sources=appdemo"
                     }
                 }
             }
