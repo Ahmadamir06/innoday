@@ -25,7 +25,7 @@ def load_sonarqube_results(json_path):
 # Load all JavaScript code files from directory
 def load_code_files(code_dir):
     code_files = {}
-    for file in Path(code_dir).glob("*.py"):
+    for file in Path(code_dir).glob("*.js"):
         with open(file, 'r') as f:
             code_files[file.name] = f.read()
     return code_files
@@ -34,16 +34,15 @@ def load_code_files(code_dir):
 def generate_prompt(code, issues):
     return f"""You are an expert Python developer and debugger.
         You will fix code based on static analysis issues and refactor code as required.
-        The program should behave as similarly as possible both before and after these changes.
 
         Here is the code:
-        ```python
+        ```javascript
         {code}
 
         And here are the issues from SonarQube:
         {issues}
 
-        Please return only the fixed code with no explanation."""
+        Please return only the fixed code file with no explanation, backticks or markdown formatting."""
 
 
 def get_fixes_from_openai(code, issues):
@@ -74,3 +73,11 @@ def fix_all_code(json_path, code_dir):
             fixed_files[filename] = code  # No changes needed
 
     return fixed_files
+
+def write_fixed_files(fixed_files: dict, output_dir: str = "./fixed"):
+    os.makedirs(output_dir, exist_ok=True)
+    for filename, content in fixed_files.items():
+        output_path = os.path.join(output_dir, filename)
+        with open(output_path, "w") as f:
+            f.write(content)
+        print(f"✅ Saved fixed file: {output_path}")
