@@ -10,7 +10,6 @@ const TodoApp = () => {
   const [filter, setFilter] = useState('all');
   const [user, setUser] = useState(null);
 
-  // Simulated user fetch (slightly overengineered for demo)
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -33,27 +32,25 @@ const TodoApp = () => {
   }, []);
 
   const addTodo = () => {
-    globalCounter++; // Using global variable (minor code smell)
+    globalCounter++; 
     
     if (inputValue.trim() === '') return;
     
     const newTodo = {
-      id: Date.now(), // Using timestamp as ID (potential collision)
+      id: Date.now(), 
       text: inputValue,
       completed: false,
       createdAt: new Date(),
-      priority: Math.random() > 0.5 ? 'high' : 'low', // Random priority
+      priority: Math.random() > 0.5 ? 'high' : 'low', 
       count: globalCounter
     };
     
     setTodos([...todos, newTodo]);
     setInputValue('');
     
-    // Side effect in component (minor code smell)
     document.title = `Todo App (${todos.length + 1} items)`;
   };
 
-  // Slightly verbose filtering logic
   const getFilteredTodos = () => {
     let filtered = todos;
     if (filter === 'completed') {
@@ -76,7 +73,6 @@ const TodoApp = () => {
     }));
   };
 
-  // Inefficient delete function (using loop instead of filter)
   const deleteTodo = (id) => {
     const newTodos = [];
     for (let i = 0; i < todos.length; i++) {
@@ -161,7 +157,6 @@ const TodoApp = () => {
                 <span className={`todo-text ${todo.completed ? 'completed' : ''}`}>
                   {todo.text}
                 </span>
-                {/* Extra info display (slightly unnecessary) */}
                 <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                   #{todo.count} | Priority: {todo.priority} | 
                   Created: {todo.createdAt.toLocaleTimeString()}
@@ -179,7 +174,6 @@ const TodoApp = () => {
         )}
       </div>
 
-      {/* Debug info (minor code smell - should be removed in production) */}
       <div style={{ 
         marginTop: '20px', 
         padding: '15px', 
