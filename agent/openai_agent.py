@@ -10,12 +10,7 @@ from langchain.schema import HumanMessage
 load_dotenv()
 
 # Create OpenAI Chat Model
-llm = ChatOpenAI(
-    openai_api_key=os.getenv("OPENAI_API_KEY"),
-    model_name="gpt-4o",
-    temperature=0.3,
-    max_tokens=2048
-)
+model = ChatOpenAI(api_key=os.getenv("OPENAI_API_KEY"), model="gpt-4")
 
 # Load SonarQube JSON
 def load_sonarqube_results(json_path):
@@ -36,20 +31,19 @@ def generate_prompt(code, issues):
         You will fix code based on static analysis issues and refactor code as required.
 
         Here is the code:
-        ```javascript
+        javascript
         {code}
 
         And here are the issues from SonarQube:
         {issues}
 
-        Please return only the fixed code file with no explanation, backticks or markdown formatting."""
+        Please return entire code file with fixed solutions. Do not add backticks, explanation or unnecessary formatting."""
 
 
 def get_fixes_from_openai(code, issues):
     prompt = generate_prompt(code, issues)
-    response = llm([HumanMessage(content=prompt)])
-    print(f"\n🔧 Fix from LLM:\n{response.content}\n")
-    return response.content
+    response = model([HumanMessage(content=prompt)])
+    return response.content.strip()
 
 
 def fix_all_code(json_path, code_dir):
@@ -74,7 +68,7 @@ def fix_all_code(json_path, code_dir):
 
     return fixed_files
 
-def write_fixed_files(fixed_files: dict, output_dir: str = "./fixed"):
+def write_fixed_files(fixed_files: dict, output_dir: str = "./appdemo/src"):
     os.makedirs(output_dir, exist_ok=True)
     for filename, content in fixed_files.items():
         output_path = os.path.join(output_dir, filename)
