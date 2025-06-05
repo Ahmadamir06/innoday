@@ -31,8 +31,8 @@ pipeline {
                 echo 'Saving SonarQube analysis JSON results...'
                 sh '''
                     mkdir -p agent
-                    curl -s -u <SONARQUBE_USER>:<SONARQUBE_TOKEN> \
-                    "http://localhost:9000/api/measures/component?component=Innovation_day&metricKeys=coverage,bugs,vulnerabilities" \
+                    curl -s -u admin:New_password@123 \
+                    "http://localhost:9000/api/issues/search?projectKeys=Innovation_day&resolved=false"  \
                     -o agent/sonarqube-results.json
                 '''
             }
