@@ -18,14 +18,8 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('MyLocalSonar') {
-                    // Use the SonarQube Scanner step, not the shell command
-                    // This uses the scanner installed/configured in Jenkins tools
-                    sonarScanner(
-                        extraProperties: """
-                            sonar.projectKey=Innovation_day
-                            sonar.sources=.
-                        """
-                    )
+                    def scannerHome = tool 'SonarQube Scanner'
+                    sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=Innovation_day -Dsonar.sources=."
                 }
             }
         }
