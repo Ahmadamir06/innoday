@@ -18,11 +18,14 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('MyLocalSonar') {
-                    def scannerHome = tool 'SonarQube Scanner'
-                    sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=Innovation_day -Dsonar.sources=."
+                    script {
+                        def scannerHome = tool 'SonarQube Scanner'
+                        sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=Innovation_day -Dsonar.sources=."
+                    }
                 }
             }
         }
+
 
         stage('Quality Gate ') {
             steps {
