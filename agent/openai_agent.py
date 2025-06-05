@@ -1,77 +1,131 @@
-import os
-import json
-from pathlib import Path
 from dotenv import load_dotenv
-
-from langchain_openai import ChatOpenAI
+from langchain.agents import initialize_agent, AgentType
 from langchain.schema import HumanMessage
+from langchain.tools import tool, Tool
+from langchain_openai import ChatOpenAI
+import json
+import os
+from pathlib import Path
 
-# Load environment variables (e.g., OPENAI_API_KEY)
+# --- Setup ---
+
 load_dotenv()
+llm = ChatOpenAI(model="gpt-4", temperature=0)
 
-# Create OpenAI Chat Model
-model = ChatOpenAI(api_key=os.getenv("OPENAI_API_KEY"), model="gpt-4")
+# --- Core Functions ---
 
-# Load SonarQube JSON
-def load_sonarqube_results(json_path):
-    with open(json_path, 'r') as f:
-        return json.load(f)
+def load_json(path: str) -> dict:
+    """Load a JSON file from disk."""
+    with open(path, 'r') as f:
+        data = json.load(f)
+        # Extract only relevant information for LLM: file, line, message, rule
+        if "issues" in data:
+            simplified_issues = []
+            for issue in data["issues"]:
+                simplified_issues.append({
+                    "file": os.path.basename(issue.get("component", "")),
+                    "line": issue.get("line", ""),
+                    "message": issue.get("message", ""),
+                    "rule": issue.get("rule", "")
+                })
+            data["issues"] = simplified_issues
+        return data
 
-# Load all JavaScript code files from directory
-def load_code_files(code_dir):
-    code_files = {}
-    for file in Path(code_dir).glob("*.js"):
+def load_js_files(directory: str) -> dict:
+    """Load all .js files from a directory into a dict {filename: content}."""
+    code = {}
+    for file in Path(directory).glob("*.js"):
         with open(file, 'r') as f:
-            code_files[file.name] = f.read()
-    return code_files
+            code[file.name] = f.read()
+    return code
 
-# Create a prompt from code and its issues
-def generate_prompt(code, issues):
-    return f"""You are an expert Python developer and debugger.
-        You will fix code based on static analysis issues and refactor code as required.
+def generate_prompt(code: str, issues: str) -> str:
+    """Generate a prompt for the LLM to fix code based on SonarQube issues."""
+    return (
+        "You are an expert JavaScript developer and debugger.\n"
+        "You will fix code based on static analysis issues and refactor code as required.\n\n"
+        "Here is the code:\n"
+        "javascript\n"
+        f"{code}\n\n"
+        "And here are the issues from SonarQube:\n"
+        f"{issues}\n\n"
+        "Return only the full fixed code, no backticks or explanations."
+    )
 
-        Here is the code:
-        javascript
-        {code}
-
-        And here are the issues from SonarQube:
-        {issues}
-
-        Please return entire code file with fixed solutions. Do not add backticks, explanation or unnecessary formatting."""
-
-
-def get_fixes_from_openai(code, issues):
+def fix_code_with_llm(code: str, issues: str) -> str:
+    """Send code and issues to the LLM and return the fixed code, removing any Markdown backticks."""
     prompt = generate_prompt(code, issues)
-    response = model([HumanMessage(content=prompt)])
-    return response.content.strip()
+    response = llm([HumanMessage(content=prompt)])
+    content = response.content.strip()
+    # Remove Markdown code block backticks if present
+    if content.startswith("```") and content.endswith("```"):
+        # Remove the first and last lines (the backticks)
+        lines = content.splitlines()
+        # If the first line is like ```js or ```javascript, remove it
+        if lines[0].strip().startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        content = "\n".join(lines)
+    return content
 
-
-def fix_all_code(json_path, code_dir):
-    sonar_data = load_sonarqube_results(json_path)
-    code_files = load_code_files(code_dir)
-
-    # Organize issues by filename
+def fix_code_from_sonar(json_path: str, code_dir: str) -> dict:
+    """Fix all JS files in code_dir using issues from SonarQube JSON."""
+    sonar = load_json(json_path)
+    code_files = load_js_files(code_dir)
+    # Map issues to filenames
     issues_by_file = {}
-    for issue in sonar_data["issues"]:
-        file_path = os.path.basename(issue["component"].split(":")[-1])
-        issues_by_file.setdefault(file_path, []).append(issue["message"])
-
-    fixed_files = {}
+    for issue in sonar.get("issues", []):
+        file = issue.get("file", "")
+        issues_by_file.setdefault(file, []).append(issue["message"])
+    # Fix files
+    fixed = {}
     for filename, code in code_files.items():
         issues = "\n".join(issues_by_file.get(filename, []))
-        print(f"\n📂 Processing: {filename}")
         if issues:
-            fixed_code = get_fixes_from_openai(code, issues)
-            fixed_files[filename] = fixed_code
+            print(f"🔧 Fixing: {filename}")
+            fixed[filename] = fix_code_with_llm(code, issues)
         else:
-            fixed_files[filename] = code  # No changes needed
+            fixed[filename] = code
+    return fixed
 
-    return fixed_files
-
-def write_fixed_files(fixed_files: dict, output_dir: str = "./appdemo/src"):
+def write_fixed_files(fixed: dict, output_dir: str = "fixed") -> None:
+    """Write fixed files to the output directory."""
     os.makedirs(output_dir, exist_ok=True)
-    for filename, content in fixed_files.items():
-        output_path = os.path.join(output_dir, filename)
-        with open(output_path, "w") as f:
+    for filename, content in fixed.items():
+        path = os.path.join(output_dir, filename)
+        with open(path, "w") as f:
             f.write(content)
-        print(f"✅ Saved fixed file: {output_path}")
+        print(f"✅ Saved: {path}")
+
+# --- Tool for Agent ---
+
+@tool
+def sonar_fix_tool(tool_input: str) -> str:
+    """
+    Fix code using SonarQube JSON and source folder.
+    tool_input: JSON string with 'json_path', 'code_dir', and optional 'output_dir'.
+    """
+    try:
+        args = json.loads(tool_input)
+        json_path = args["json_path"]
+        code_dir = args["code_dir"]
+        output_dir = args.get("output_dir", "fixed")
+    except Exception as e:
+        return f"Invalid input: {e}"
+    fixed = fix_code_from_sonar(json_path, code_dir)
+    write_fixed_files(fixed, output_dir)
+    return f"Fixed files written to {output_dir}:\n" + "\n".join(fixed.keys())
+
+# --- Agent Factory ---
+
+def get_code_fixing_agent():
+    """Return a LangChain agent for fixing code using SonarQube JSON and source folder."""
+    tools = [
+        Tool.from_function(
+            sonar_fix_tool,
+            name="sonar_fix_tool",
+            description="Fix code using SonarQube JSON and source folder. Args: json_path, code_dir, output_dir (optional)."
+        )
+    ]
+    return initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
